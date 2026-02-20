@@ -1,1 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Analista PRO</title>
 
+<style>
+body{
+    background:#0f172a;
+    color:white;
+    font-family: Arial, sans-serif;
+    margin:0;
+    overflow-x:auto;
+}
+
+header{
+    padding:10px;
+    background:#111827;
+    text-align:center;
+    font-weight:bold;
+    font-size:15px;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns: repeat(20, 38px);
+    gap:4px;
+    justify-content:center;
+    padding:10px;
+}
+
+.cell{
+    width:38px;
+    height:38px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:6px;
+    font-size:11px;
+    font-weight:bold;
+    transition:0.2s;
+}
+
+.red{background:#dc2626;}
+.black{background:#000;}
+.white{
+    background:#fff;
+    color:#000;
+    animation:blink 0.6s infinite alternate;
+}
+
+@keyframes blink{
+    from{box-shadow:0 0 6px #fff;}
+    to{box-shadow:0 0 14px #fff;}
+}
+
+.seq{ border:2px solid #22c55e; }
+.diag{ border:2px solid #3b82f6; }
+
+</style>
+</head>
+<body>
+
+<header>PAINEL ANALISTA 00A → 09B</header>
+<div class="grid" id="grid"></div>
+
+<script>
+
+const COLS = 20;
+const ROWS = 60;
+let matriz = [];
+
+function iniciar(){
+    matriz=[];
+    for(let i=0;i<ROWS;i++){
+        matriz.push(new Array(COLS).fill(null));
+    }
+}
+
+async function buscar(){
+    try{
+        const response = await fetch("https://blaze.bet.br/api/roulette_games/recent");
+        const data = await response.json();
+        processar(data.reverse());
+    }catch(e){
+        console.log("Erro API");
+    }
+}
+
+function processar(dados){
+
+    iniciar();
+
+    dados.forEach(jogo=>{
+        const d = new Date(jogo.created_at);
+        const min = d.getMinutes() % 10;
+        const sec = d.getSeconds();
+        const base = min*2;
+        const col = sec < 30 ? base : base+1;
+
+        inserir(col, jogo);
+    });
+
+    detectarSeq();
+    detectarDiag();
+    renderizar();
+}
+
+function inserir(col, jogo){
+    for(let r=ROWS-1;r>=0;r--){
+        if(!matriz[r][col]){
+            matriz[r][col]=jogo;
+            break;
+        }
+    }
+}
+
+function detectarSeq(){
+    for(let c=0;c<COLS;c++){
+        let count=1;
+        for(let r=ROWS-1;r>0;r--){
+            if(matriz[r][c] && matriz[r-1][c]){
+                if(matriz[r][c].color===matriz[r-1][c].color){
+                    count++;
+                    if(count>=3){
+                        matriz[r][c].seq=true;
+                        matriz[r-1][c].seq=true;
+                    }
+                }else{
+                    count=1;
+                }
+            }
+        }
+    }
+}
+
+function detectarDiag(){
+    for(let r=1;r<ROWS;r++){
+        for(let c=1;c<COLS;c++){
+            if(matriz[r][c] && matriz[r-1][c-1]){
+                if(matriz[r][c].color===matriz[r-1][c-1].color){
+                    matriz[r][c].diag=true;
+                }
+            }
+        }
+    }
+}
+
+function renderizar(){
+    const grid = document.getElementById("grid");
+    grid.innerHTML="";
+
+    matriz.forEach(row=>{
+        row.forEach(cell=>{
+            const div=document.createElement("div");
+            div.className="cell";
+
+            if(cell){
+                div.classList.add(cell.color);
+                div.innerHTML=cell.roll;
+
+                if(cell.seq) div.classList.add("seq");
+                if(cell.diag) div.classList.add("diag");
+            }
+
+            grid.appendChild(div);
+        });
+    });
+}
+
+setInterval(buscar,5000);
+buscar();
+
+</script>
+
+</body>
+</html>
